@@ -1,0 +1,18 @@
+LIBRARY graph_core
+EXPORTS
+    graphing_abi_version
+    get_error_code
+    get_graph_count
+    add_graph
+    edit_graph
+    delete_graph
+    set_visible
+    set_color
+    generate_points
+    zoom_in
+    zoom_out
+    pan
+    reset_view
+    screen_to_math
+    math_to_screen
+    get_zoom_percent
