@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tkinter import messagebox
 from typing import Callable
 
 import customtkinter as ctk
@@ -8,22 +9,22 @@ import customtkinter as ctk
 FUNCTION_TYPES = {
     "linear": {
         "type_id": 0,
-        "label": "y = ax + b",
+        "label": "Hàm bậc nhất: y = ax + b",
         "coefficients": ["a", "b"],
     },
     "quadratic": {
         "type_id": 1,
-        "label": "y = ax^2 + bx + c",
+        "label": "Hàm bậc hai: y = ax^2 + bx + c",
         "coefficients": ["a", "b", "c"],
     },
     "sin": {
         "type_id": 2,
-        "label": "y = a*sin(bx + c) + d",
+        "label": "Hàm sin: y = a*sin(bx + c) + d",
         "coefficients": ["a", "b", "c", "d"],
     },
     "cos": {
         "type_id": 3,
-        "label": "y = a*cos(bx + c) + d",
+        "label": "Hàm cos: y = a*cos(bx + c) + d",
         "coefficients": ["a", "b", "c", "d"],
     },
 }
@@ -58,7 +59,7 @@ class FunctionPanel(ctk.CTkFrame):
         on_update: Callable[[str, list[float]], None],
         on_cancel: Callable[[], None],
     ) -> None:
-        super().__init__(master, corner_radius=8)
+        super().__init__(master, corner_radius=8, fg_color="#ffffff")
         self.on_draw = on_draw
         self.on_update = on_update
         self.on_cancel = on_cancel
@@ -81,11 +82,22 @@ class FunctionPanel(ctk.CTkFrame):
             key: item["label"] for key, item in FUNCTION_TYPES.items()
         }
 
-        self.function_combo = ctk.CTkComboBox(
+        self.function_combo = ctk.CTkOptionMenu(
             self,
             values=labels,
             command=self._on_function_change,
-            state="readonly",
+            height=36,
+            corner_radius=14,
+            fg_color="#a4b8c9",
+            button_color="#8995ad",
+            button_hover_color="#78829f",
+            dropdown_fg_color="#e3f0f1",
+            dropdown_hover_color="#dbeafe",
+            dropdown_text_color="#0f172a",
+            text_color="#0f172a",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            dropdown_font=ctk.CTkFont(size=13),
+            anchor="w",
         )
         self.function_combo.set(self.label_by_key[self.function_key.get()])
         self.function_combo.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 10))
@@ -118,9 +130,6 @@ class FunctionPanel(ctk.CTkFrame):
         )
         cancel_button.grid(row=0, column=2, sticky="ew", padx=(5, 0))
 
-        self.error_label = ctk.CTkLabel(self, text="", text_color="#b91c1c", anchor="w")
-        self.error_label.grid(row=4, column=0, sticky="ew", padx=14, pady=(0, 12))
-
     def _on_function_change(self, label: str) -> None:
         self.function_key.set(self.key_by_label[label])
         self._render_coefficient_inputs()
@@ -135,7 +144,11 @@ class FunctionPanel(ctk.CTkFrame):
             label = ctk.CTkLabel(self.coefficient_frame, text=name, anchor="w")
             label.grid(row=index, column=0, sticky="w", pady=(0, 6))
 
-            entry = ctk.CTkEntry(self.coefficient_frame, placeholder_text=f"Hệ số {name}")
+            entry = ctk.CTkEntry(
+                self.coefficient_frame,
+                height=30,
+                placeholder_text=f"Hệ số {name}",
+            )
             entry.insert(0, "1" if name == "a" else "0")
             entry.grid(row=index, column=1, sticky="ew", pady=(0, 6))
             self.entries[name] = entry
@@ -146,10 +159,9 @@ class FunctionPanel(ctk.CTkFrame):
             for name in FUNCTION_TYPES[self.function_key.get()]["coefficients"]:
                 coefficients.append(float(self.entries[name].get().strip()))
         except ValueError:
-            self.error_label.configure(text="Hệ số phải là số hợp lệ.")
+            messagebox.showerror("GRAPHING", "Hệ số phải là số hợp lệ.")
             return None
 
-        self.error_label.configure(text="")
         return coefficients
 
     def _draw_new(self) -> None:
@@ -173,7 +185,6 @@ class FunctionPanel(ctk.CTkFrame):
         self.function_combo.set(self.label_by_key["linear"])
         self._render_coefficient_inputs()
         self.set_editing(False)
-        self.error_label.configure(text="")
 
     def set_editing(self, is_editing: bool) -> None:
         self.update_button.configure(state="normal" if is_editing else "disabled")
@@ -189,4 +200,3 @@ class FunctionPanel(ctk.CTkFrame):
             entry.delete(0, "end")
             entry.insert(0, format_number(value))
         self.set_editing(True)
-        self.error_label.configure(text="")

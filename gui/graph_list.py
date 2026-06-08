@@ -5,6 +5,10 @@ from typing import Callable
 import customtkinter as ctk
 
 
+VISIBLE_ICON = "👁"
+DELETE_ICON = "🗑"
+
+
 class GraphList(ctk.CTkFrame):
     def __init__(
         self,
@@ -14,7 +18,7 @@ class GraphList(ctk.CTkFrame):
         on_color: Callable[[int], None],
         on_delete: Callable[[int], None],
     ) -> None:
-        super().__init__(master, corner_radius=8)
+        super().__init__(master, corner_radius=8, fg_color="#ffffff")
         self.on_select = on_select
         self.on_visible = on_visible
         self.on_color = on_color
@@ -84,30 +88,42 @@ class GraphList(ctk.CTkFrame):
         )
         color_button.grid(row=0, column=0, padx=(8, 6), pady=8)
 
-        label = ctk.CTkLabel(row, text=record.expression, anchor="w")
+        label = ctk.CTkLabel(
+            row,
+            text=record.expression,
+            anchor="w",
+            text_color="#0f172a" if record.visible else "#94a3b8",
+        )
         label.grid(row=0, column=1, sticky="ew", padx=(0, 6), pady=8)
         label.bind("<Button-1>", lambda _event, graph_id=record.graph_id: self.on_select(graph_id))
         row.bind("<Button-1>", lambda _event, graph_id=record.graph_id: self.on_select(graph_id))
 
-        visible_var = ctk.BooleanVar(value=record.visible)
-        visible_box = ctk.CTkCheckBox(
+        visible_button = ctk.CTkButton(
             row,
-            text="",
-            width=24,
-            variable=visible_var,
-            command=lambda graph_id=record.graph_id, var=visible_var: self.on_visible(
-                graph_id, bool(var.get())
+            text=VISIBLE_ICON,
+            width=34,
+            height=28,
+            corner_radius=7,
+            fg_color="#dbeafe" if record.visible else "#e5e7eb",
+            hover_color="#bfdbfe" if record.visible else "#d1d5db",
+            text_color="#2563eb" if record.visible else "#94a3b8",
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=15),
+            command=lambda graph_id=record.graph_id, visible=record.visible: self.on_visible(
+                graph_id, not visible
             ),
         )
-        visible_box.grid(row=0, column=2, padx=4, pady=8)
+        visible_button.grid(row=0, column=2, padx=4, pady=8)
 
         delete_button = ctk.CTkButton(
             row,
-            text="Xóa",
-            width=44,
+            text=DELETE_ICON,
+            width=34,
             height=28,
-            fg_color="#dc2626",
-            hover_color="#b91c1c",
+            corner_radius=7,
+            fg_color="#738C98",
+            hover_color="#617ca1",
+            text_color="#ffffff",
+            font=ctk.CTkFont(family="Segoe UI Symbol", size=15),
             command=lambda graph_id=record.graph_id: self.on_delete(graph_id),
         )
         delete_button.grid(row=0, column=3, padx=(4, 8), pady=8)

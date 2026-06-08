@@ -106,6 +106,8 @@ int set_visible(int id, int visible);
 int set_color(int id, int color_rgb);
 
 int generate_points(int id, int width, int height, double* out_xy, int max_pairs);
+int generate_axis_ticks(int axis, int width, int height, double* out_pairs, int max_pairs);
+int find_nearest_graph_point(double sx, double sy, int id, int width, int height, double* out_values);
 
 int zoom_in(void);
 int zoom_out(void);
@@ -132,7 +134,7 @@ File này có các nhiệm vụ:
 - Tạo cửa sổ chính.
 - Tạo bố cục giao diện gồm panel nhập hàm, danh sách đồ thị, vùng Canvas và thanh trạng thái.
 - Tạo lớp `GraphCoreBridge` để kết nối Python với DLL Assembly thông qua `ctypes`.
-- Gọi các hàm DLL như `add_graph`, `edit_graph`, `delete_graph`, `generate_points`, `zoom_in`, `pan`, `reset_view`.
+- Gọi các hàm DLL như `add_graph`, `edit_graph`, `delete_graph`, `generate_points`, `generate_axis_ticks`, `find_nearest_graph_point`, `zoom_in`, `pan`, `reset_view`.
 - Cập nhật dữ liệu hiển thị trên giao diện.
 
 ### `gui/function_panel.py`
@@ -168,7 +170,9 @@ Chức năng chính:
 
 - Vẽ nền, lưới tọa độ và hệ trục Oxy.
 - Gọi DLL để chuyển đổi tọa độ.
+- Gọi DLL để lấy vị trí và giá trị các vạch chia trục.
 - Gọi DLL để sinh tập điểm đồ thị.
+- Gọi DLL để tìm điểm trên đồ thị gần con trỏ chuột khi hover.
 - Vẽ các điểm trả về từ DLL lên Canvas.
 - Bắt sự kiện chuột để zoom, pan và cập nhật tọa độ con trỏ.
 
@@ -220,6 +224,8 @@ File này xử lý vùng nhìn và tọa độ.
 Chức năng chính:
 
 - Sinh tập điểm đồ thị để Python vẽ lên Canvas.
+- Sinh vị trí và giá trị các vạch chia trục tọa độ.
+- Tìm điểm trên đồ thị gần con trỏ chuột để hỗ trợ hover.
 - Chuyển tọa độ màn hình sang tọa độ toán học.
 - Chuyển tọa độ toán học sang tọa độ màn hình.
 - Zoom in.

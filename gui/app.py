@@ -13,7 +13,16 @@ from gui.graph_list import GraphList
 
 
 MAX_GRAPHS = 5
+SIDEBAR_WIDTH = 370
 DEFAULT_COLORS = ["#2dd4bf", "#f97316", "#a78bfa", "#f43f5e", "#84cc16"]
+DLL_ERROR_MESSAGES = {
+    -1: "Đã vượt quá giới hạn 5 đồ thị.",
+    -2: "ID đồ thị không hợp lệ.",
+    -3: "Loại hàm không hợp lệ.",
+    -4: "Số lượng hệ số không hợp lệ.",
+    -5: "Hệ số phải nằm trong khoảng [-1000; 1000].",
+    -7: "Buffer, con trỏ hoặc kích thước không hợp lệ.",
+}
 
 
 class DllUnavailableError(RuntimeError):
@@ -69,6 +78,19 @@ class GraphCoreBridge:
         self.lib.generate_points.argtypes = [int_t, int_t, int_t, double_ptr, int_t]
         self.lib.generate_points.restype = int_t
 
+        self.lib.generate_axis_ticks.argtypes = [int_t, int_t, int_t, double_ptr, int_t]
+        self.lib.generate_axis_ticks.restype = int_t
+
+        self.lib.find_nearest_graph_point.argtypes = [
+            double_t,
+            double_t,
+            int_t,
+            int_t,
+            int_t,
+            double_ptr,
+        ]
+        self.lib.find_nearest_graph_point.restype = int_t
+
         self.lib.zoom_in.argtypes = []
         self.lib.zoom_in.restype = int_t
 
@@ -119,7 +141,8 @@ class GraphCoreBridge:
 
     def _check(self, result: int) -> int:
         if result < 0:
-            raise RuntimeError(f"DLL trả về lỗi {result}")
+            message = DLL_ERROR_MESSAGES.get(result, f"DLL trả về lỗi {result}.")
+            raise RuntimeError(message)
         return result
 
     @staticmethod
@@ -156,6 +179,31 @@ class GraphCoreBridge:
         buffer = (ctypes.c_double * (max_pairs * 2))()
         count = self._check(lib.generate_points(graph_id, width, height, buffer, max_pairs))
         return [(buffer[i * 2], buffer[i * 2 + 1]) for i in range(count)]
+
+    def generate_axis_ticks(
+        self, axis: int, width: int, height: int, max_pairs: int = 128
+    ) -> list[tuple[float, float]]:
+        lib = self._require()
+        buffer = (ctypes.c_double * (max_pairs * 2))()
+        count = self._check(lib.generate_axis_ticks(axis, width, height, buffer, max_pairs))
+        return [(buffer[i * 2], buffer[i * 2 + 1]) for i in range(count)]
+
+    def find_nearest_graph_point(
+        self,
+        graph_id: int,
+        screen_x: float,
+        screen_y: float,
+        width: int,
+        height: int,
+    ) -> tuple[float, float, float, float] | None:
+        lib = self._require()
+        buffer = (ctypes.c_double * 4)()
+        found = self._check(
+            lib.find_nearest_graph_point(screen_x, screen_y, graph_id, width, height, buffer)
+        )
+        if found == 0:
+            return None
+        return buffer[0], buffer[1], buffer[2], buffer[3]
 
     def zoom_in(self) -> None:
         self._check(self._require().zoom_in())
@@ -244,12 +292,19 @@ class GraphingApp(ctk.CTk):
             self.status_message.set("Chưa có DLL. Chạy asm\\build.bat để tạo dll\\graph_core.dll.")
 
     def _build_layout(self) -> None:
-        self.grid_columnconfigure(0, minsize=330)
+        self.grid_columnconfigure(0, minsize=SIDEBAR_WIDTH, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        sidebar = ctk.CTkFrame(self, corner_radius=0)
+        sidebar = ctk.CTkFrame(
+            self,
+            width=SIDEBAR_WIDTH,
+            corner_radius=0,
+            fg_color="#d5e0ea",
+        )
         sidebar.grid(row=0, column=0, sticky="nsew")
+        sidebar.grid_propagate(False)
+        sidebar.grid_columnconfigure(0, weight=1)
         sidebar.grid_rowconfigure(1, weight=1)
 
         self.function_panel = FunctionPanel(
@@ -296,7 +351,9 @@ class GraphingApp(ctk.CTk):
         function_type = FUNCTION_TYPES[function_key]["type_id"]
         try:
             if len(self.records) >= MAX_GRAPHS:
-                self.status_message.set("Đã đạt giới hạn 5 đồ thị.")
+                message = "Đã đạt giới hạn 5 đồ thị."
+                messagebox.showwarning("GRAPHING", message)
+                self.status_message.set(message)
                 return
 
             color_hex = DEFAULT_COLORS[len(self.records) % len(DEFAULT_COLORS)]
@@ -323,7 +380,9 @@ class GraphingApp(ctk.CTk):
 
     def _handle_update(self, function_key: str, coefficients: list[float]) -> None:
         if self.selected_id is None:
-            self.status_message.set("Hãy chọn một đồ thị để cập nhật.")
+            message = "Hãy chọn một đồ thị để cập nhật."
+            messagebox.showwarning("GRAPHING", message)
+            self.status_message.set(message)
             return
 
         function_type = FUNCTION_TYPES[function_key]["type_id"]

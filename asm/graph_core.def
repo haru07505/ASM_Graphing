@@ -9,6 +9,8 @@ EXPORTS
     set_visible
     set_color
     generate_points
+    generate_axis_ticks
+    find_nearest_graph_point
     zoom_in
     zoom_out
     pan

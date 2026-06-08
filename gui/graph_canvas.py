@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import tkinter as tk
 from typing import Callable
 
@@ -69,9 +68,9 @@ class GraphCanvas(ctk.CTkFrame):
         self.canvas.create_rectangle(0, 0, width, height, fill="#ffffff", outline="")
 
         try:
-            left, top = self.bridge.screen_to_math(0.0, 0.0, width, height)
-            right, bottom = self.bridge.screen_to_math(float(width), float(height), width, height)
             origin_x, origin_y = self.bridge.math_to_screen(0.0, 0.0, width, height)
+            x_ticks = self.bridge.generate_axis_ticks(0, width, height)
+            y_ticks = self.bridge.generate_axis_ticks(1, width, height)
         except Exception:
             self._draw_static_grid(width, height)
             self.canvas.create_text(
@@ -83,30 +82,17 @@ class GraphCanvas(ctk.CTkFrame):
             )
             return
 
-        min_x, max_x = min(left, right), max(left, right)
-        min_y, max_y = min(bottom, top), max(bottom, top)
-        step_x = self._nice_step(max_x - min_x)
-        step_y = self._nice_step(max_y - min_y)
         x_labels: list[tuple[float, str]] = []
-        y_labels: list[tuple[float, str]] = []
-
-        start_x = math.floor(min_x / step_x) * step_x
-        x = start_x
-        while x <= max_x + step_x:
-            screen_x, _ = self.bridge.math_to_screen(x, 0.0, width, height)
+        for screen_x, value in x_ticks:
             self.canvas.create_line(screen_x, 0, screen_x, height, fill="#e2e8f0")
             if -40 <= screen_x <= width + 40:
-                x_labels.append((screen_x, self._format_axis_value(x)))
-            x += step_x
+                x_labels.append((screen_x, self._format_axis_value(value)))
 
-        start_y = math.floor(min_y / step_y) * step_y
-        y = start_y
-        while y <= max_y + step_y:
-            _, screen_y = self.bridge.math_to_screen(0.0, y, width, height)
+        y_labels: list[tuple[float, str]] = []
+        for screen_y, value in y_ticks:
             self.canvas.create_line(0, screen_y, width, screen_y, fill="#e2e8f0")
-            if -30 <= screen_y <= height + 30 and abs(y) > step_y * 0.001:
-                y_labels.append((screen_y, self._format_axis_value(y)))
-            y += step_y
+            if -30 <= screen_y <= height + 30 and abs(value) > 0.005:
+                y_labels.append((screen_y, self._format_axis_value(value)))
 
         self.canvas.create_line(origin_x, 0, origin_x, height, fill="#475569", width=2)
         self.canvas.create_line(0, origin_y, width, origin_y, fill="#475569", width=2)
@@ -119,7 +105,7 @@ class GraphCanvas(ctk.CTkFrame):
                 x_label_y,
                 text=text,
                 fill="#64748b",
-                font=("Segoe UI", 9),
+                font=("Segoe UI", 14, "bold"),
             )
 
         y_label_x = self._axis_y_label_x(origin_x, width)
@@ -130,7 +116,7 @@ class GraphCanvas(ctk.CTkFrame):
                 label_y,
                 text=text,
                 fill="#64748b",
-                font=("Segoe UI", 9),
+                font=("Segoe UI", 14, "bold"),
                 anchor="e" if y_label_x <= origin_x else "w",
             )
 
@@ -154,30 +140,31 @@ class GraphCanvas(ctk.CTkFrame):
                 continue
             flattened = [coordinate for point in points for coordinate in point]
             line_tag = f"graph_line_{record.graph_id}"
-            line_id = self.canvas.create_line(
+            self.canvas.create_line(
                 *flattened,
                 fill=record.color_hex,
                 width=2,
                 smooth=True,
-                activewidth=4,
                 tags=(line_tag, "graph_line"),
             )
             self.canvas.tag_bind(
                 line_tag,
                 "<Enter>",
-                lambda event, item_id=line_id, graph=record: self._handle_graph_enter(
-                    event, item_id, graph
+                lambda event, graph=record: self._draw_graph_marker(
+                    event, graph
                 ),
             )
             self.canvas.tag_bind(
                 line_tag,
                 "<Motion>",
-                lambda event, graph=record: self._draw_graph_hover(event, graph),
+                lambda event, graph=record: self._draw_graph_marker(
+                    event, graph
+                ),
             )
             self.canvas.tag_bind(
                 line_tag,
                 "<Leave>",
-                lambda _event, item_id=line_id: self._handle_graph_leave(item_id),
+                lambda _event: self._clear_graph_marker(),
             )
 
     def _handle_motion(self, event: tk.Event) -> None:
@@ -257,8 +244,8 @@ class GraphCanvas(ctk.CTkFrame):
     ) -> None:
         self.canvas.delete("cursor")
         label = f"({math_x:.2f}, {math_y:.2f})"
-        label_width = max(78, len(label) * 7 + 14)
-        label_height = 24
+        label_width = max(92, len(label) * 8 + 18)
+        label_height = 28
         x0 = screen_x + 12
         y0 = screen_y + 12
 
@@ -308,41 +295,74 @@ class GraphCanvas(ctk.CTkFrame):
             text=label,
             fill="#0f172a",
             anchor="w",
-            font=("Segoe UI", 9),
+            font=("Segoe UI", 14, "bold"),
             tags=("cursor",),
             state="disabled",
         )
         self.canvas.tag_raise("cursor")
         self.canvas.tag_raise("graph_hover")
 
-    def _handle_graph_enter(self, event: tk.Event, item_id: int, record: object) -> None:
-        try:
-            self.canvas.itemconfigure(item_id, width=4)
-        except tk.TclError:
-            return
-        self._draw_graph_hover(event, record)
-
-    def _handle_graph_leave(self, item_id: int) -> None:
-        try:
-            self.canvas.itemconfigure(item_id, width=2)
-        except tk.TclError:
-            pass
+    def _clear_graph_marker(self) -> None:
         self.canvas.delete("graph_hover")
 
-    def _draw_graph_hover(self, event: tk.Event, record: object) -> None:
+    def _draw_graph_marker(
+        self,
+        event: tk.Event,
+        record: object,
+    ) -> None:
         self.canvas.delete("graph_hover")
-        label = record.expression
-        label_width = max(120, len(label) * 7 + 16)
-        label_height = 26
+
         width = max(self.canvas.winfo_width(), 1)
         height = max(self.canvas.winfo_height(), 1)
-        x0 = event.x + 14
-        y0 = event.y - label_height - 10
+        try:
+            nearest = self.bridge.find_nearest_graph_point(
+                record.graph_id,
+                float(event.x),
+                float(event.y),
+                width,
+                height,
+            )
+        except Exception:
+            return
+
+        if nearest is None:
+            return
+
+        point_x, point_y, math_x, math_y = nearest
+        label = f"{record.expression}  ({math_x:.2f}, {math_y:.2f})"
+
+        radius = 6
+        self.canvas.create_oval(
+            point_x - radius,
+            point_y - radius,
+            point_x + radius,
+            point_y + radius,
+            fill=record.color_hex,
+            outline="#ffffff",
+            width=2,
+            tags=("graph_hover",),
+            state="disabled",
+        )
+        self.canvas.create_oval(
+            point_x - radius - 3,
+            point_y - radius - 3,
+            point_x + radius + 3,
+            point_y + radius + 3,
+            outline=record.color_hex,
+            width=1,
+            tags=("graph_hover",),
+            state="disabled",
+        )
+
+        label_width = max(150, len(label) * 8 + 18)
+        label_height = 28
+        x0 = point_x + 14
+        y0 = point_y - label_height - 14
 
         if x0 + label_width > width - 8:
-            x0 = event.x - label_width - 14
+            x0 = point_x - label_width - 14
         if y0 < 8:
-            y0 = event.y + 14
+            y0 = point_y + 14
 
         x0 = self._clamp(x0, 8, max(8, width - label_width - 8))
         y0 = self._clamp(y0, 8, max(8, height - label_height - 8))
@@ -365,7 +385,7 @@ class GraphCanvas(ctk.CTkFrame):
             text=label,
             fill="#0f172a",
             anchor="w",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 14, "bold"),
             tags=("graph_hover",),
             state="disabled",
         )
@@ -373,15 +393,15 @@ class GraphCanvas(ctk.CTkFrame):
 
     @staticmethod
     def _axis_x_label_y(origin_y: float, height: int) -> float:
-        if 18 <= origin_y <= height - 28:
-            return origin_y + 16
-        return height - 14
+        if 22 <= origin_y <= height - 34:
+            return origin_y + 20
+        return height - 18
 
     @staticmethod
     def _axis_y_label_x(origin_x: float, width: int) -> float:
-        if 46 <= origin_x <= width - 46:
-            return origin_x + 10
-        return 36
+        if 56 <= origin_x <= width - 56:
+            return origin_x + 14
+        return 44
 
     @staticmethod
     def _format_axis_value(value: float) -> str:
@@ -393,16 +413,3 @@ class GraphCanvas(ctk.CTkFrame):
     @staticmethod
     def _clamp(value: float, minimum: float, maximum: float) -> float:
         return min(max(value, minimum), maximum)
-
-    @staticmethod
-    def _nice_step(span: float) -> float:
-        if span <= 0:
-            return 1.0
-        raw = span / 12.0
-        magnitude = 10 ** math.floor(math.log10(raw))
-        normalized = raw / magnitude
-        if normalized < 2:
-            return magnitude
-        if normalized < 5:
-            return 2 * magnitude
-        return 5 * magnitude
