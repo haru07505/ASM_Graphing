@@ -66,6 +66,7 @@ Graphing/
 │   ├── graph_core.asm
 │   ├── graph_math.asm
 │   ├── graph_manager.asm
+│   ├── graph_plot.asm
 │   ├── graph_view.asm
 │   ├── graph_core.def
 │   └── build.bat
@@ -217,13 +218,24 @@ Chức năng chính:
 - Đổi màu đồ thị.
 - Lưu mã lỗi gần nhất.
 
+### `asm/graph_plot.asm`
+
+File này xử lý việc sinh tập điểm của đồ thị.
+
+Chức năng chính:
+
+- Nhận ID đồ thị và kích thước vùng vẽ.
+- Lấy loại hàm và các hệ số đã lưu trong `graph_manager.asm`.
+- Gọi `eval_graph_y` trong `graph_math.asm` để tính giá trị hàm.
+- Sử dụng trạng thái vùng nhìn từ `graph_view.asm`.
+- Sinh các cặp tọa độ màn hình `[x0, y0, x1, y1, ...]` để Python Canvas vẽ.
+
 ### `asm/graph_view.asm`
 
 File này xử lý vùng nhìn và tọa độ.
 
 Chức năng chính:
 
-- Sinh tập điểm đồ thị để Python vẽ lên Canvas.
 - Sinh vị trí và giá trị các vạch chia trục tọa độ.
 - Tìm điểm trên đồ thị gần con trỏ chuột để hỗ trợ hover.
 - Chuyển tọa độ màn hình sang tọa độ toán học.
@@ -331,3 +343,71 @@ Nếu chương trình mở giao diện `GRAPHING`, quá trình chạy thành cô
 - Nếu `build.bat` báo không tìm thấy NASM, cần cài NASM và thêm vào `PATH`.
 - Nếu `build.bat` báo không tìm thấy gcc, cần cài MinGW-w64 và thêm vào `PATH`.
 - Nếu chưa có `dll/graph_core.dll`, giao diện vẫn mở nhưng sẽ báo cần build DLL trước.
+
+## 6. Phân chia công việc
+
+### Quản lý đồ thị và tích hợp DLL
+
+**Phần Assembly:**
+
+- Phụ trách `asm/graph_core.asm`.
+- Phụ trách `asm/graph_manager.asm`.
+- Phụ trách `asm/graph_core.def`.
+- Phụ trách `asm/build.bat`.
+- Xây dựng và kiểm thử các hàm:
+  - `graphing_abi_version`
+  - `get_error_code`
+  - `get_graph_count`
+  - `add_graph`
+  - `edit_graph`
+  - `delete_graph`
+  - `set_visible`
+  - `set_color`
+
+**Phần Python:**
+
+- Phụ trách `gui/graph_list.py`.
+- Phụ trách các thao tác CRUD và xử lý lỗi DLL trong `gui/app.py`.
+- Xử lý chọn đồ thị, ẩn/hiện, đổi màu và xóa đồ thị.
+
+### Toán học và sinh tập điểm
+
+**Phần Assembly:**
+
+- Phụ trách `asm/graph_math.asm`.
+- Phụ trách `asm/graph_plot.asm`.
+- Xây dựng và kiểm thử các hàm:
+  - `validate_coefficients`
+  - `eval_graph_y`
+  - `generate_points`
+- Xử lý các loại hàm bậc nhất, bậc hai, sin và cos.
+- Kiểm tra số lượng hệ số và miền giá trị `[-1000; 1000]`.
+
+**Phần Python:**
+
+- Phụ trách `gui/function_panel.py`.
+- Xử lý lựa chọn loại hàm và hiển thị các ô nhập hệ số tương ứng.
+- Hiển thị biểu thức hàm và chuyển dữ liệu nhập sang lớp `GraphCoreBridge`.
+
+### Vùng nhìn, tọa độ và tương tác Canvas
+
+**Phần Assembly:**
+
+- Phụ trách `asm/graph_view.asm`.
+- Xây dựng và kiểm thử các hàm:
+  - `zoom_in`
+  - `zoom_out`
+  - `pan`
+  - `reset_view`
+  - `screen_to_math`
+  - `math_to_screen`
+  - `get_zoom_percent`
+  - `generate_axis_ticks`
+  - `find_nearest_graph_point`
+
+**Phần Python:**
+
+- Phụ trách `gui/graph_canvas.py`.
+- Phụ trách thanh trạng thái tọa độ và zoom trong `gui/app.py`.
+- Vẽ hệ trục, lưới, nhãn tọa độ, tooltip và điểm hover.
+- Bắt sự kiện chuột để zoom, pan và hiển thị tọa độ.

@@ -3,7 +3,7 @@ setlocal EnableExtensions
 
 set "OUT_DIR=..\dll"
 set "DLL_NAME=graph_core.dll"
-set "OBJ_FILES=graph_core.obj graph_math.obj graph_manager.obj graph_view.obj"
+set "OBJ_FILES=graph_core.obj graph_math.obj graph_manager.obj graph_plot.obj graph_view.obj"
 set "GCC="
 
 if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
@@ -36,6 +36,9 @@ nasm -f win64 graph_math.asm -o graph_math.obj
 if errorlevel 1 exit /b 1
 
 nasm -f win64 graph_manager.asm -o graph_manager.obj
+if errorlevel 1 exit /b 1
+
+nasm -f win64 graph_plot.asm -o graph_plot.obj
 if errorlevel 1 exit /b 1
 
 nasm -f win64 graph_view.asm -o graph_view.obj
